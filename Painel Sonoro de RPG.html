@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Painel Sonoro de RPG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Pirata+One&family=Alegreya+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+  --bg:#ece3cc; --surface:#f6efdc; --tile:#fbf6e8; --line:#c9b98f;
+  --ink:#2b2418; --muted:#6f6247; --brass:#8a6420; --ember:#a3361f; --on-ember:#fff6ea;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#171b19; --surface:#1e2421; --tile:#252d29; --line:#3b463f;
+    --ink:#e9e1cc; --muted:#a39c86; --brass:#d1a95a; --ember:#c8472b; --on-ember:#fff6ea;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#171b19; --surface:#1e2421; --tile:#252d29; --line:#3b463f;
+  --ink:#e9e1cc; --muted:#a39c86; --brass:#d1a95a; --ember:#c8472b; --on-ember:#fff6ea;
+}
+*,*::before,*::after{box-sizing:inherit}
+html{height:100%}
+body{margin:0;min-height:100%;background:var(--bg);color:var(--ink);font-family:"Alegreya Sans",system-ui,sans-serif;font-size:18px;line-height:1.4}
+header{display:flex;flex-wrap:wrap;gap:16px 28px;align-items:end;justify-content:space-between;padding:28px clamp(16px,4vw,48px) 18px;border-bottom:2px solid var(--line)}
+h1{font-family:"Pirata One",Georgia,serif;font-weight:400;font-size:clamp(2.2rem,6vw,3.6rem);line-height:1;margin:0;letter-spacing:.01em}
+h1 small{display:block;font-family:"Alegreya Sans",sans-serif;font-size:1rem;color:var(--muted);margin-top:6px;letter-spacing:0}
+.bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+button,.btn,input,label{font:inherit}
+.btn{display:inline-flex;align-items:center;gap:8px;border:1.5px solid var(--brass);background:transparent;color:var(--ink);padding:9px 16px;border-radius:6px;cursor:pointer;font-weight:500}
+.btn:hover{background:color-mix(in srgb,var(--brass) 16%,transparent)}
+.btn.primary{background:var(--brass);color:var(--bg);font-weight:700}
+.btn.danger{border-color:var(--ember);color:var(--ember)}
+.btn.danger:hover{background:var(--ember);color:var(--on-ember)}
+:is(button,.btn,input,.tile-main):focus-visible{outline:3px solid var(--ember);outline-offset:2px}
+.vol{display:flex;align-items:center;gap:8px;color:var(--muted)}
+.vol input{accent-color:var(--brass);width:120px}
+main{padding:24px clamp(16px,4vw,48px) 60px}
+#drop{display:none;position:fixed;inset:0;z-index:5;background:color-mix(in srgb,var(--bg) 88%,transparent);align-items:center;justify-content:center;font-family:"Pirata One",serif;font-size:2.4rem;border:4px dashed var(--brass);margin:12px}
+body.dragging #drop{display:flex}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
+.tile{background:var(--tile);border:1.5px solid var(--line);border-radius:10px;display:flex;flex-direction:column;overflow:hidden}
+.tile.on{border-color:var(--ember)}
+.tile-main{all:unset;box-sizing:border-box;cursor:pointer;display:flex;flex-direction:column;justify-content:space-between;gap:18px;min-height:110px;padding:14px 14px 10px;position:relative}
+.tile-main:hover{background:color-mix(in srgb,var(--brass) 10%,transparent)}
+.tile-main:focus-visible{outline:3px solid var(--ember);outline-offset:-3px}
+.name{font-size:1.15rem;font-weight:700;overflow-wrap:anywhere}
+.key{position:absolute;top:10px;right:10px;min-width:26px;height:26px;display:grid;place-items:center;border:1.5px solid var(--line);border-radius:5px;font-size:.85rem;color:var(--muted)}
+.meter{height:5px;border-radius:3px;background:var(--line);overflow:hidden}
+.meter i{display:block;height:100%;width:0;background:var(--ember)}
+.tile.on .meter i{animation:run var(--d,2s) linear forwards}
+.tile.on.loop .meter i{animation:run var(--d,2s) linear infinite}
+@keyframes run{from{width:0}to{width:100%}}
+.tools{display:flex;border-top:1.5px solid var(--line)}
+.tools button{flex:1;background:none;border:0;color:var(--muted);padding:8px 4px;cursor:pointer;font-size:.9rem}
+.tools button+button{border-left:1.5px solid var(--line)}
+.tools button:hover{color:var(--ink);background:color-mix(in srgb,var(--brass) 12%,transparent)}
+.tools button[aria-pressed="true"]{color:var(--ember);font-weight:700}
+.tools button:focus-visible{outline:3px solid var(--ember);outline-offset:-3px}
+.empty{max-width:520px;margin:8vh auto;text-align:center}
+.empty h2{font-family:"Pirata One",serif;font-weight:400;font-size:2rem;margin:0 0 8px}
+.empty p{color:var(--muted);margin:0 0 20px}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:6px;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+@media (prefers-reduced-motion:reduce){.tile.on .meter i{animation:none;width:100%}}
+</style>
+</head>
+<body>
+<div id="drop">Solte os arquivos de áudio aqui</div>
+<header>
+  <h1>Painel Sonoro<small>Adicione seus sons e toque com um clique ou com o teclado.</small></h1>
+  <div class="bar">
+    <label class="btn primary" for="file">Adicionar sons</label>
+    <input id="file" type="file" accept="audio/*" multiple hidden>
+    <button class="btn danger" id="stop">Parar tudo</button>
+    <label class="vol">Volume <input id="master" type="range" min="0" max="1" step=".01" value=".8" aria-label="Volume geral"></label>
+  </div>
+</header>
+<main>
+  <div id="grid" class="grid"></div>
+  <div id="empty" class="empty" hidden>
+    <h2>Nenhum som ainda</h2>
+    <p>Clique em “Adicionar sons” ou arraste arquivos MP3, WAV ou OGG para esta página. Eles ficam salvos neste navegador.</p>
+  </div>
+</main>
+<div class="toast" id="toast" role="status"></div>
+<script>
+(function(){
+  var KEYS="1234567890qwertyuiop".split("");
+  var sounds=[], playing=new Map(), db=null, master=.8;
+  var grid=document.getElementById("grid"), empty=document.getElementById("empty"), toastEl=document.getElementById("toast");
+
+  function toast(t){toastEl.textContent=t;toastEl.classList.add("show");clearTimeout(toast.t);toast.t=setTimeout(function(){toastEl.classList.remove("show")},2400)}
+
+  /* ---------- armazenamento (IndexedDB, com fallback em memória) ---------- */
+  function openDB(){
+    return new Promise(function(res){
+      try{
+        var r=indexedDB.open("painel-sonoro-rpg",1);
+        r.onupgradeneeded=function(){r.result.createObjectStore("sons",{keyPath:"id"})};
+        r.onsuccess=function(){res(r.result)};
+        r.onerror=function(){res(null)};
+      }catch(e){res(null)}
+    });
+  }
+  function dbAll(){
+    return new Promise(function(res){
+      if(!db)return res([]);
+      try{var q=db.transaction("sons").objectStore("sons").getAll();q.onsuccess=function(){res(q.result||[])};q.onerror=function(){res([])}}catch(e){res([])}
+    });
+  }
+  function dbPut(s){
+    if(!db)return;
+    try{db.transaction("sons","readwrite").objectStore("sons").put({id:s.id,name:s.name,loop:s.loop,order:s.order,blob:s.blob})}catch(e){}
+  }
+  function dbDel(id){
+    if(!db)return;
+    try{db.transaction("sons","readwrite").objectStore("sons").delete(id)}catch(e){}
+  }
+
+  /* ---------- reprodução ---------- */
+  function play(s){
+    if(s.loop && playing.has(s.id)){stopSound(s.id);return}
+    var a=new Audio(s.url);
+    a.volume=master; a.loop=s.loop;
+    var list=playing.get(s.id)||[]; list.push(a); playing.set(s.id,list);
+    a.addEventListener("ended",function(){
+      var l=(playing.get(s.id)||[]).filter(function(x){return x!==a});
+      l.length?playing.set(s.id,l):playing.delete(s.id); mark(s.id);
+    });
+    a.play().catch(function(){toast("Não foi possível tocar este arquivo.")});
+    mark(s.id);
+  }
+  function stopSound(id){
+    (playing.get(id)||[]).forEach(function(a){a.pause()});
+    playing.delete(id); mark(id);
+  }
+  function stopAll(){Array.from(playing.keys()).forEach(stopSound)}
+  function mark(id){
+    var el=grid.querySelector('[data-id="'+id+'"]'); if(!el)return;
+    var on=playing.has(id), s=sounds.find(function(x){return x.id===id});
+    el.classList.remove("on"); void el.offsetWidth;
+    el.classList.toggle("on",on);
+    el.classList.toggle("loop",!!(s&&s.loop));
+  }
+
+  /* ---------- interface ---------- */
+  function render(){
+    grid.innerHTML=""; empty.hidden=sounds.length>0;
+    sounds.forEach(function(s,i){
+      var t=document.createElement("div"); t.className="tile"; t.dataset.id=s.id;
+      if(s.dur) t.style.setProperty("--d",s.dur+"s");
+      var main=document.createElement("button"); main.className="tile-main";
+      main.setAttribute("aria-label","Tocar "+s.name);
+      var nm=document.createElement("span"); nm.className="name"; nm.textContent=s.name;
+      var meter=document.createElement("span"); meter.className="meter"; meter.innerHTML="<i></i>";
+      main.appendChild(nm); main.appendChild(meter);
+      if(KEYS[i]){var k=document.createElement("span"); k.className="key"; k.textContent=KEYS[i].toUpperCase(); main.appendChild(k)}
+      main.onclick=function(){play(s)};
+      var tools=document.createElement("div"); tools.className="tools";
+      var lp=btn("Repetir",function(){s.loop=!s.loop;lp.setAttribute("aria-pressed",s.loop);dbPut(s);if(!s.loop&&playing.has(s.id))stopSound(s.id)});
+      lp.setAttribute("aria-pressed",!!s.loop);
+      var rn=btn("Renomear",function(){var n=prompt("Novo nome para o som:",s.name);if(n&&n.trim()){s.name=n.trim();dbPut(s);render()}});
+      var dl=btn("Apagar",function(){if(confirm("Apagar “"+s.name+"”?")){stopSound(s.id);URL.revokeObjectURL(s.url);sounds=sounds.filter(function(x){return x!==s});dbDel(s.id);render()}});
+      tools.appendChild(lp);tools.appendChild(rn);tools.appendChild(dl);
+      t.appendChild(main);t.appendChild(tools);grid.appendChild(t);
+      if(playing.has(s.id)) t.classList.add("on");
+    });
+  }
+  function btn(txt,fn){var b=document.createElement("button");b.textContent=txt;b.onclick=fn;return b}
+
+  function addFiles(files){
+    var n=0;
+    Array.from(files).forEach(function(f){
+      if(f.type.indexOf("audio")!==0 && !/\.(mp3|wav|ogg|m4a|aac|flac|webm)$/i.test(f.name))return;
+      var s={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),
+        name:f.name.replace(/\.[^.]+$/,"").replace(/[_-]+/g," "),loop:false,order:sounds.length,blob:f};
+      s.url=URL.createObjectURL(f); sounds.push(s); dbPut(s); n++;
+      var probe=new Audio(s.url); probe.addEventListener("loadedmetadata",function(){if(isFinite(probe.duration)){s.dur=probe.duration;var el=grid.querySelector('[data-id="'+s.id+'"]');if(el)el.style.setProperty("--d",s.dur+"s")}});
+    });
+    render();
+    toast(n?n+(n>1?" sons adicionados.":" som adicionado."):"Nenhum arquivo de áudio encontrado.");
+  }
+
+  document.getElementById("file").addEventListener("change",function(e){addFiles(e.target.files);e.target.value=""});
+  document.getElementById("stop").onclick=stopAll;
+  document.getElementById("master").addEventListener("input",function(e){
+    master=+e.target.value; playing.forEach(function(l){l.forEach(function(a){a.volume=master})});
+  });
+  document.addEventListener("keydown",function(e){
+    if(e.ctrlKey||e.metaKey||e.altKey)return;
+    var tag=(e.target.tagName||"").toLowerCase(); if(tag==="input"||tag==="textarea")return;
+    if(e.key==="Escape"){stopAll();return}
+    var i=KEYS.indexOf(e.key.toLowerCase());
+    if(i>-1&&sounds[i]&&!e.repeat){e.preventDefault();play(sounds[i])}
+  });
+  var depth=0;
+  window.addEventListener("dragenter",function(e){e.preventDefault();depth++;document.body.classList.add("dragging")});
+  window.addEventListener("dragleave",function(){depth=Math.max(0,depth-1);if(!depth)document.body.classList.remove("dragging")});
+  window.addEventListener("dragover",function(e){e.preventDefault()});
+  window.addEventListener("drop",function(e){e.preventDefault();depth=0;document.body.classList.remove("dragging");if(e.dataTransfer&&e.dataTransfer.files)addFiles(e.dataTransfer.files)});
+
+  openDB().then(function(d){db=d;return dbAll()}).then(function(rows){
+    rows.sort(function(a,b){return a.order-b.order});
+    rows.forEach(function(r){
+      var s={id:r.id,name:r.name,loop:r.loop,order:r.order,blob:r.blob,url:URL.createObjectURL(r.blob)};
+      sounds.push(s);
+      var p=new Audio(s.url); p.addEventListener("loadedmetadata",function(){if(isFinite(p.duration)){s.dur=p.duration;var el=grid.querySelector('[data-id="'+s.id+'"]');if(el)el.style.setProperty("--d",s.dur+"s")}});
+    });
+    render();
+  });
+})();
+</script>
+</body>
+</html>
